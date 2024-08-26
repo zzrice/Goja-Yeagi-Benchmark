@@ -66,6 +66,19 @@ func BenchmarkCreateArray(b *testing.B) {
 			}
 		}
 	})
+
+	// go原生
+	b.Run("GoCreateArray", func(b *testing.B) {
+		b.ResetTimer()
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			arr := make([]int, 100000)
+			for j := 0; j < 100000; j++ {
+				arr[j] = j
+			}
+		}
+
+	})
 }
 
 // 测试遍历数组
@@ -124,11 +137,28 @@ func BenchmarkTraverseArray(b *testing.B) {
 		b.ReportAllocs()
 
 		for j := 0; j < b.N; j++ {
-			_, err := i.Eval(` for i := 0; i < len(arr); i++ { arr[i]; }`)
+			_, err := i.Eval(` for i := 0; i < len(arr); i++ { arr[i]}`)
 			if err != nil {
 				b.Fatal(err)
 			}
 		}
+	})
+
+	// go原生
+	b.Run("GoTraverseArray", func(b *testing.B) {
+		arr := make([]int, 10000)
+		for i := 0; i < 10000; i++ {
+			arr[i] = i
+		}
+		b.ResetTimer()
+		b.ReportAllocs()
+
+		for i := 0; i < b.N; i++ {
+			for j := 0; j < 10000; j++ {
+				_ = arr[j]
+			}
+		}
+
 	})
 }
 

@@ -1,7 +1,6 @@
 package algorithm_test
 
 import (
-	"fmt"
 	"github.com/dop251/goja"
 	"github.com/traefik/yaegi/interp"
 	"github.com/traefik/yaegi/stdlib"
@@ -45,10 +44,8 @@ func BenchmarkFib(b *testing.B) {
 	})
 
 	b.Run("YaegiAlgorithm", func(b *testing.B) {
-		fmt.Println("1")
 		script := `
 		package main
-		import "fmt"
 		func fibonacci(n int) int {
 			if n <= 1 {
 				return n
@@ -58,7 +55,6 @@ func BenchmarkFib(b *testing.B) {
 			for i := 2; i <= n; i++ {
 				fib[i] = fib[i-1] + fib[i-2]
 			}
-			fmt.Println("1")
 			return fib[n]
 		}`
 		i := interp.New(interp.Options{GoPath: build.Default.GOPATH})
@@ -76,8 +72,31 @@ func BenchmarkFib(b *testing.B) {
 				b.Fatal(err)
 			}
 		}
-
 	})
+
+	// go原生
+	b.Run("GoFib", func(b *testing.B) {
+
+		fib := func(n int) int {
+			if n <= 1 {
+				return n
+			}
+			fib := make([]int, n+1)
+			fib[0], fib[1] = 0, 1
+			for i := 2; i <= n; i++ {
+				fib[i] = fib[i-1] + fib[i-2]
+			}
+			return fib[n]
+		}
+
+		b.ResetTimer()
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			x := rand.Intn(1000)
+			_ = fib(x)
+		}
+	})
+
 }
 
 func BenchmarkConvexHull(b *testing.B) {
@@ -151,6 +170,7 @@ func BenchmarkConvexHull(b *testing.B) {
 	b.Run("YaegiAlgorithm", func(b *testing.B) {
 		script := `
 		package main
+		import ( "sort" )
 		// 定义一个点结构体
 		type Point struct {
 			x, y int
@@ -161,44 +181,39 @@ func BenchmarkConvexHull(b *testing.B) {
 			return (a.x-o.x)*(b.y-o.y) - (a.y-o.y)*(b.x-o.x)
 		}
 		
-		// 手动排序点
-		func manualSort(points []Point) []Point {
-			n := len(points)
-			for i := 0; i < n; i++ {
-				for j := 0; j < n-i-1; j++ {
-					if points[j].x > points[j+1].x || (points[j].x == points[j+1].x && points[j].y > points[j+1].y) {
-						points[j], points[j+1] = points[j+1], points[j]
-					}
-				}
-			}
-			return points
-		}
-		
 		// 凸包计算
 		func convexHull(points []Point) []Point {
-			points = manualSort(points)
+			// 按照 Y 坐标排序，若 Y 坐标相同则按 X 坐标排序
+			sort.Slice(points, func(i, j int) bool {
+				if points[i].Y == points[j].Y {
+					return points[i].X < points[j].X
+				}
+				return points[i].Y < points[j].Y
+			})
 		
-			// 创建下半部分
+			// 计算凸包的下半部分
 			lower := []Point{}
 			for _, p := range points {
-				for len(lower) >= 2 && cross(lower[len(lower)-2], lower[len(lower)-1], p) < 0 {
+				for len(lower) >= 2 && cross(lower[len(lower)-2], lower[len(lower)-1], p) <= 0 {
 					lower = lower[:len(lower)-1]
 				}
 				lower = append(lower, p)
 			}
 		
-			// 创建上半部分
+			// 计算凸包的上半部分
 			upper := []Point{}
 			for i := len(points) - 1; i >= 0; i-- {
 				p := points[i]
-				for len(upper) >= 2 && cross(upper[len(upper)-2], upper[len(upper)-1], p) < 0 {
+				for len(upper) >= 2 && cross(upper[len(upper)-2], upper[len(upper)-1], p) <= 0 {
 					upper = upper[:len(upper)-1]
 				}
 				upper = append(upper, p)
 			}
 		
-			// 去掉上半部分的最后一个点，因为它与下半部分的第一个点重复
-			return append(lower[:len(lower)-1], upper...)
+			// 去掉重复的点
+			upper = upper[1:]
+
+			return append(lower, upper...)
 		}
 		
 		const points = []Point{
@@ -213,8 +228,8 @@ func BenchmarkConvexHull(b *testing.B) {
 		}
 `
 		i := interp.New(interp.Options{})
-		_, err := i.Eval(script)
 		i.Use(stdlib.Symbols)
+		_, err := i.Eval(script)
 		if err != nil {
 			b.Fatal(err)
 		}

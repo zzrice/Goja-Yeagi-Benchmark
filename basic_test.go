@@ -48,4 +48,14 @@ func BenchmarkAdd(b *testing.B) {
 			}
 		}
 	})
+
+	// go原生
+	b.Run("GoAdd", func(b *testing.B) {
+		b.ResetTimer()
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			x, y := rand.Intn(10000), rand.Intn(10000)
+			_ = x + y
+		}
+	})
 }

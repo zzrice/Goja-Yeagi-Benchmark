@@ -11,7 +11,10 @@ func BenchmarkError(b *testing.B) {
 	b.Run("GojaError", func(b *testing.B) {
 		script := `
 		function test() {
-			throw new Error("Test error");
+			try {
+				throw new Error("Test error");
+			} catch (e) {
+			}
 		}
 	`
 		vm := goja.New()
@@ -34,6 +37,9 @@ func BenchmarkError(b *testing.B) {
 		script := `
 		package main
 		func test() {
+			defer func() {
+				if r := recover(); r != nil {}
+			}()
 			panic("Test error")
 		}
 `
@@ -50,6 +56,23 @@ func BenchmarkError(b *testing.B) {
 			if err != nil {
 				continue
 			}
+		}
+	})
+
+	// go原生
+	b.Run("GoError", func(b *testing.B) {
+		e := func() {
+			defer func() {
+				if r := recover(); r != nil {
+				}
+			}()
+			panic("Test error")
+		}
+
+		b.ResetTimer()
+		b.ReportAllocs()
+		for i := 0; i < b.N; i++ {
+			e()
 		}
 	})
 }
